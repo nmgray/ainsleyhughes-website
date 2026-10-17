@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/leads
+Disallow: /api/valuation
+
+Sitemap: https://www.ainsleyhughes.com/sitemap.xml

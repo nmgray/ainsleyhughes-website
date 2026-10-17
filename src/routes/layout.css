@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+@theme {
+	--font-sans: 'proxima-nova', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	--font-display: 'ltc-bodoni-175', Georgia, 'Times New Roman', serif;
+	--color-ink: #151515;
+	--color-copy: #444;
+	--color-muted: #777;
+	--color-line: #e5e5e5;
+	--breakpoint-site: 75rem;
+}

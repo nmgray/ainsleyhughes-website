@@ -1,0 +1,33 @@
+# Ainsley Hughes Real Estate
+
+> Official website for Ainsley Hughes, an Ojai-based REALTOR (California DRE 02105320) with Keller Williams World Class.
+
+## Primary pages
+
+- [Home](https://www.ainsleyhughes.com/): Agent identity, services, service areas, and frequently asked questions
+- [About Ainsley Hughes](https://www.ainsleyhughes.com/about): Experience and professional background
+- [How I Work](https://www.ainsleyhughes.com/how-i-work): Client process and advisory approach
+- [Buy](https://www.ainsleyhughes.com/buy): Home-buying guidance
+- [Sell](https://www.ainsleyhughes.com/sell): Home-selling guidance
+- [Client Reviews](https://www.ainsleyhughes.com/ojai-real-estate-reviews): Client testimonials
+- [Ojai Neighborhoods](https://www.ainsleyhughes.com/ojai-neighborhoods-1): Local neighborhood guides
+- [Blog](https://www.ainsleyhughes.com/blog): Ojai and California real estate articles
+- [Contact](https://www.ainsleyhughes.com/contact): Contact information and inquiry form
+
+## Service areas
+
+- Ojai Valley
+- West Ventura County
+- South Santa Barbara County
+
+## Contact
+
+- Phone: 805-896-5383
+- Email: ainsleyhughes@kw.com
+- Brokerage: Keller Williams World Class
+- License: California DRE 02105320
+
+## Feeds and discovery
+
+- [Sitemap](https://www.ainsleyhughes.com/sitemap.xml)
+- [RSS feed](https://www.ainsleyhughes.com/rss.xml)
