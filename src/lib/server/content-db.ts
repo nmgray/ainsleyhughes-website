@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import { env } from '$env/dynamic/private';
 import type { Post } from '$lib/content';
 import { renderMarkdown } from '$lib/server/markdown';
+import { retirePreEditorialMarketSnapshots } from '$lib/server/market-migration';
 
 export type ManagedPost = {
 	id: number;
@@ -218,24 +219,12 @@ if (!database.prepare('SELECT 1 FROM app_migrations WHERE name = ?').get(marketH
 				);
 		}
 
-		const legacyMarketRetirement = 'retire-pre-editorial-market-snapshots-v1';
-		if (
-			!database.prepare('SELECT 1 FROM app_migrations WHERE name = ?').get(legacyMarketRetirement)
-		) {
-			database.transaction(() => {
-				database
-					.prepare("UPDATE market_snapshots SET status = 'draft' WHERE status = 'published'")
-					.run();
-				database
-					.prepare('INSERT INTO app_migrations (name, applied_at) VALUES (?, ?)')
-					.run(legacyMarketRetirement, new Date().toISOString());
-			})();
-		}
 		database
 			.prepare('INSERT INTO app_migrations (name, applied_at) VALUES (?, ?)')
 			.run(marketHistoryMigration, new Date().toISOString());
 	})();
 }
+retirePreEditorialMarketSnapshots(database);
 
 const rowToManagedPost = (row: Record<string, unknown>): ManagedPost => ({
 	id: Number(row.id),
