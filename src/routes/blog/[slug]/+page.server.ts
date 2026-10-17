@@ -1,18 +1,16 @@
 import { error, redirect } from '@sveltejs/kit';
-import { canonicalBlogSlugs, findPost, publishedPosts } from '$lib/content';
-import { articleLikeState, findManagedPost, publishedManagedPosts } from '$lib/server/content-db';
+import { canonicalBlogSlugs } from '$lib/content';
+import { articleLikeState } from '$lib/server/content-db';
+import { currentBlogPost, currentBlogPosts } from '$lib/server/editorial';
 import { sanitizeArticleHtml } from '$lib/server/markdown';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, cookies }) => {
 	const canonical = canonicalBlogSlugs[params.slug as keyof typeof canonicalBlogSlugs];
 	if (canonical) redirect(301, `/blog/${canonical}`);
-	const source = findManagedPost(params.slug) ?? findPost('blog', params.slug);
+	const source = currentBlogPost(params.slug);
 	if (!source) error(404, 'Article not found');
-	const posts = [...publishedPosts('blog'), ...publishedManagedPosts()].sort(
-		(a, b) =>
-			(b.priority ?? 0) - (a.priority ?? 0) || Date.parse(b.published) - Date.parse(a.published)
-	);
+	const posts = currentBlogPosts();
 	const index = posts.findIndex((post) => post.slug === source.slug);
 	return {
 		post: {

@@ -1,6 +1,4 @@
-import { publishedManagedReviews } from '$lib/server/content-db';
+import { currentReviews } from '$lib/server/editorial';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => ({
-	managedReviews: publishedManagedReviews()
-});
+export const load: PageServerLoad = () => currentReviews();

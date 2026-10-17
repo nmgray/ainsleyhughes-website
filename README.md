@@ -84,24 +84,75 @@ npm run build
 
 ## Fly.io deployment
 
-1. Install `flyctl`, authenticate, and change the globally unique `app` value in `fly.toml`.
-2. Create the persistent content volume:
+The `develop` branch deploys to the separate `test-ainsleyhughes` Fly app after a pull
+request is merged. A merge into `main` deploys to the `ainsley-hughes` production app.
+The workflow checks types, formatting, and unit tests, builds on Fly, and checks `/health`.
+Closing a pull request without merging does not deploy. Direct branch pushes do not deploy;
+use pull requests for releases. The two apps must have separate volumes, secrets, and content:
+a deploy changes code, not the SQLite data or uploaded images stored on each volume.
+Both Fly apps and their separate volumes now exist; production has no Machine until its first
+deployment.
+
+One-time setup:
+
+1. Create `develop` from `main`. The test app already exists; create the production app
+   before merging to `main`:
 
    ```powershell
-   fly volumes create ainsley_data --region lax --size 1
+   flyctl apps create ainsley-hughes
    ```
 
-3. Configure secrets:
+2. Create a **separate** persistent volume for production (the test app already has its own):
 
    ```powershell
-   fly secrets set LEAD_WEBHOOK_URL="https://…" LEAD_WEBHOOK_SECRET="…" LLM_TOOLS_API_KEY="…" ADMIN_PASSWORD_HASH='scrypt$…$…' ADMIN_SESSION_SECRET="…"
+   flyctl volumes create ainsley_data --app ainsley-hughes --region lax --size 1
    ```
 
-4. Deploy with `fly deploy`.
-5. Add and verify the production domain with `fly certs add www.ainsleyhughes.com`; update DNS using the values Fly provides.
-6. Confirm `/health`, `/admin`, form delivery, redirects, canonical URLs, and sitemap output on the production hostname.
+   Keep each SQLite app at one Machine; multiple Machines cannot safely share this local
+   database. Back up the volume before any data migration or manual replacement.
 
-Fly performs rolling releases with health checks. Inspect releases using `fly releases`; roll back with `fly releases rollback <version>`. Application logs are available through `fly logs`.
+3. Configure the application secrets **separately for each Fly app**. Both editorial API keys
+   are staged on their respective apps. Before production launch, configure email delivery
+   ([issue #3](https://github.com/nmgray/ainsleyhughes-website/issues/3)); if the legacy
+   admin is retained, configure its own production credentials. Do not copy test content.
+
+   ```powershell
+   flyctl secrets set --app ainsley-hughes ADMIN_PASSWORD_HASH='scrypt$…$…' ADMIN_SESSION_SECRET="…"
+   ```
+
+   Configure other optional integration secrets as needed. Never put credentials in this
+   repository.
+
+4. The `test` and `production` GitHub environments each have their own app-scoped
+   `FLY_API_TOKEN`. Tokens expire October 17, 2027; rotate them before then:
+
+   ```powershell
+   flyctl tokens create deploy --app test-ainsleyhughes --expiry 8760h
+   flyctl tokens create deploy --app ainsley-hughes --expiry 8760h
+   ```
+
+   Copy each token directly into its corresponding GitHub environment secret; do not
+   paste tokens into source files or logs. Rotate them before expiry. Optionally require
+   approval for the `production` environment; require pull requests on both branches.
+
+5. Merge a pull request into `develop` to verify the test app. Once production is ready,
+   merge a pull request into `main`. After checking the production Fly hostname, attach
+   both `www.ainsleyhughes.com` and `ainsleyhughes.com` to **production only**, and then
+   point DNS at Fly's provided records. The site currently uses the `www` hostname for
+   canonical URLs.
+
+   ```powershell
+   flyctl certs add www.ainsleyhughes.com --app ainsley-hughes
+   flyctl certs add ainsleyhughes.com --app ainsley-hughes
+   flyctl certs check www.ainsleyhughes.com --app ainsley-hughes
+   flyctl certs check ainsleyhughes.com --app ainsley-hughes
+   ```
+
+6. Confirm `/health`, form delivery, redirects, canonical URLs, and sitemap output on
+   the production hostname before directing visitors there. Check `/admin` if it remains
+   enabled during the transition to ChatGPT publishing.
+
+Fly deploys with health checks. Inspect releases using `fly releases`; roll back with `fly releases rollback <version>`. Application logs are available through `fly logs`.
 The Node adapter derives the public request origin from Fly's trusted `x-forwarded-proto` and
 `host` headers. Do not hard-code `ORIGIN`: doing so makes legitimate admin form submissions fail
 when the Fly preview hostname and production custom domain differ.

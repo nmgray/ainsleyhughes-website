@@ -10,6 +10,7 @@ export default defineConfig({
 			ADMIN_PASSWORD_HASH:
 				'scrypt$playwright-salt$7vNFvfWzgCvDxZRvANyARY1HAmDoyaO5HNoGdO9ElYLay3V2dMl_Ge3uo00b47dkdUkGK9BYVmtmHZqJmuckQg',
 			ADMIN_SESSION_SECRET: 'playwright-session-secret-at-least-32-characters',
+			EDITOR_API_KEY: 'playwright-editorial-key-at-least-32-characters',
 			CONTENT_DB_PATH: 'data/playwright-content.sqlite',
 			CONTENT_UPLOAD_DIR: 'data/playwright-uploads'
 		}

@@ -123,8 +123,64 @@ database.exec(`
 		created_at TEXT NOT NULL,
 		PRIMARY KEY (post_slug, voter_id)
 	);
-	CREATE INDEX IF NOT EXISTS article_likes_post_slug_idx ON article_likes(post_slug)
+	CREATE INDEX IF NOT EXISTS article_likes_post_slug_idx ON article_likes(post_slug);
+	CREATE TABLE IF NOT EXISTS editorial_revisions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		kind TEXT NOT NULL CHECK (kind IN ('market', 'neighborhood', 'blog', 'review')),
+		slug TEXT NOT NULL,
+		payload TEXT NOT NULL,
+		created_at TEXT NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS editorial_revisions_resource_idx
+		ON editorial_revisions(kind, slug, id);
+	CREATE TABLE IF NOT EXISTS editorial_publications (
+		kind TEXT NOT NULL,
+		slug TEXT NOT NULL,
+		revision_id INTEGER NOT NULL REFERENCES editorial_revisions(id),
+		published_at TEXT NOT NULL,
+		PRIMARY KEY (kind, slug)
+	)
 `);
+
+const editorialDefinition = database
+	.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'editorial_revisions'")
+	.get() as { sql: string };
+if (!editorialDefinition.sql.includes("'review'")) {
+	const foreignKeys = database.pragma('foreign_keys', { simple: true }) as number;
+	database.pragma('foreign_keys = OFF');
+	try {
+		database.transaction(() => {
+			database.exec(`
+				CREATE TABLE editorial_revisions_next (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					kind TEXT NOT NULL CHECK (kind IN ('market', 'neighborhood', 'blog', 'review')),
+					slug TEXT NOT NULL,
+					payload TEXT NOT NULL,
+					created_at TEXT NOT NULL
+				);
+				INSERT INTO editorial_revisions_next SELECT * FROM editorial_revisions;
+				DROP TABLE editorial_revisions;
+				ALTER TABLE editorial_revisions_next RENAME TO editorial_revisions;
+				CREATE INDEX editorial_revisions_resource_idx
+					ON editorial_revisions(kind, slug, id);
+			`);
+		})();
+	} finally {
+		database.pragma(`foreign_keys = ${foreignKeys ? 'ON' : 'OFF'}`);
+	}
+}
+
+const publicationColumns = database.prepare('PRAGMA table_info(editorial_publications)').all() as {
+	name: string;
+}[];
+if (!publicationColumns.some((column) => column.name === 'published_at')) {
+	database.exec(
+		"ALTER TABLE editorial_publications ADD COLUMN published_at TEXT NOT NULL DEFAULT ''"
+	);
+	database
+		.prepare("UPDATE editorial_publications SET published_at = ? WHERE published_at = ''")
+		.run(new Date().toISOString());
+}
 
 function ensurePriorityColumn(table: 'posts' | 'market_snapshots' | 'reviews') {
 	const columns = database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
@@ -160,6 +216,20 @@ if (!database.prepare('SELECT 1 FROM app_migrations WHERE name = ?').get(marketH
 					legacy.status,
 					legacy.updated_at
 				);
+		}
+
+		const legacyMarketRetirement = 'retire-pre-editorial-market-snapshots-v1';
+		if (
+			!database.prepare('SELECT 1 FROM app_migrations WHERE name = ?').get(legacyMarketRetirement)
+		) {
+			database.transaction(() => {
+				database
+					.prepare("UPDATE market_snapshots SET status = 'draft' WHERE status = 'published'")
+					.run();
+				database
+					.prepare('INSERT INTO app_migrations (name, applied_at) VALUES (?, ?)')
+					.run(legacyMarketRetirement, new Date().toISOString());
+			})();
 		}
 		database
 			.prepare('INSERT INTO app_migrations (name, applied_at) VALUES (?, ?)')
@@ -513,6 +583,102 @@ export function updateManagedReviewSettings(
 		database
 			.prepare('UPDATE reviews SET status = ?, priority = ?, updated_at = ? WHERE id = ?')
 			.run(status, priority, new Date().toISOString(), id).changes > 0
+	);
+}
+
+export type EditorialKind = 'market' | 'neighborhood' | 'blog' | 'review';
+export type EditorialRevision<T> = {
+	id: number;
+	kind: EditorialKind;
+	slug: string;
+	content: T;
+	createdAt: string;
+	publishedAt?: string;
+};
+
+function readEditorialRevision<T>(row: Record<string, unknown>): EditorialRevision<T> {
+	return {
+		id: Number(row.id),
+		kind: row.kind as EditorialKind,
+		slug: String(row.slug),
+		content: JSON.parse(String(row.payload)) as T,
+		createdAt: String(row.created_at),
+		...(row.published_at ? { publishedAt: String(row.published_at) } : {})
+	};
+}
+
+export function editorialRevision<T>(kind: EditorialKind, slug: string, id: number) {
+	const row = database
+		.prepare('SELECT * FROM editorial_revisions WHERE kind = ? AND slug = ? AND id = ?')
+		.get(kind, slug, id) as Record<string, unknown> | undefined;
+	return row ? readEditorialRevision<T>(row) : null;
+}
+
+export function editorialHistory<T>(kind: EditorialKind, slug: string) {
+	return database
+		.prepare('SELECT * FROM editorial_revisions WHERE kind = ? AND slug = ? ORDER BY id DESC')
+		.all(kind, slug)
+		.map((row) => readEditorialRevision<T>(row as Record<string, unknown>));
+}
+
+export function editorialSlugs(kind: EditorialKind) {
+	return database
+		.prepare('SELECT DISTINCT slug FROM editorial_revisions WHERE kind = ?')
+		.all(kind)
+		.map((row) => (row as { slug: string }).slug);
+}
+
+export function publishedEditorial<T>(kind: EditorialKind, slug: string) {
+	const row = database
+		.prepare(
+			`SELECT revisions.*, publications.published_at FROM editorial_publications AS publications
+			 JOIN editorial_revisions AS revisions ON revisions.id = publications.revision_id
+			 WHERE publications.kind = ? AND publications.slug = ?`
+		)
+		.get(kind, slug) as Record<string, unknown> | undefined;
+	return row ? readEditorialRevision<T>(row) : null;
+}
+
+export function publishedEditorialList<T>(kind: EditorialKind) {
+	return database
+		.prepare(
+			`SELECT revisions.*, publications.published_at FROM editorial_publications AS publications
+			 JOIN editorial_revisions AS revisions ON revisions.id = publications.revision_id
+			 WHERE publications.kind = ?`
+		)
+		.all(kind)
+		.map((row) => readEditorialRevision<T>(row as Record<string, unknown>));
+}
+
+export function saveEditorialDraft<T>(kind: EditorialKind, slug: string, content: T) {
+	return Number(
+		database
+			.prepare(
+				'INSERT INTO editorial_revisions (kind, slug, payload, created_at) VALUES (?, ?, ?, ?)'
+			)
+			.run(kind, slug, JSON.stringify(content), new Date().toISOString()).lastInsertRowid
+	);
+}
+
+export function publishEditorialRevision(kind: EditorialKind, slug: string, id: number) {
+	return database.transaction(() => {
+		if (!editorialRevision(kind, slug, id)) return false;
+		database
+			.prepare(
+				`INSERT INTO editorial_publications (kind, slug, revision_id, published_at) VALUES (?, ?, ?, ?)
+				 ON CONFLICT(kind, slug) DO UPDATE SET revision_id = excluded.revision_id,
+				 published_at = excluded.published_at`
+			)
+			.run(kind, slug, id, new Date().toISOString());
+		return true;
+	})();
+}
+
+export function unpublishEditorial(kind: EditorialKind, slug: string, expectedId: number) {
+	return (
+		database
+			.prepare('DELETE FROM editorial_publications WHERE kind = ? AND slug = ? AND revision_id = ?')
+			.run(kind, slug, expectedId).changes > 0
 	);
 }
 

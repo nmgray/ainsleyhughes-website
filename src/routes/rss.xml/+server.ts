@@ -1,13 +1,12 @@
-import { publishedPosts } from '$lib/content';
 import { site } from '$lib/config';
-import { publishedManagedPosts } from '$lib/server/content-db';
+import { currentBlogPosts } from '$lib/server/editorial';
 import type { RequestHandler } from './$types';
 
 const escapeXml = (value: string) =>
 	value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
 export const GET: RequestHandler = () => {
-	const items = [...publishedPosts('blog'), ...publishedManagedPosts()]
+	const items = currentBlogPosts()
 		.sort((a, b) => Date.parse(b.published) - Date.parse(a.published))
 		.slice(0, 30)
 		.map(

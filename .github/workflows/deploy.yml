@@ -1,0 +1,68 @@
+name: Deploy to Fly.io
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.pull_request.base.ref == 'main' && 'production' || 'test' }}
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_APP: ${{ github.event.pull_request.base.ref == 'main' && 'ainsley-hughes' || 'test-ainsleyhughes' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint
+      - run: npm run test:unit -- --run
+
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Check branch tip
+        id: current
+        env:
+          TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
+          MERGED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          tip=$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)
+          if [ -z "$tip" ]; then
+            echo "::error::Cannot find the deployment branch."
+            exit 1
+          fi
+          if [ "$tip" = "$MERGED_SHA" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::A newer commit is on $TARGET_BRANCH; skipping this deployment."
+          fi
+
+      - name: Deploy merged commit
+        if: steps.current.outputs.deploy == 'true'
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::error::Set FLY_API_TOKEN in the GitHub deployment environment."
+            exit 1
+          fi
+          flyctl deploy --app "$FLY_APP" --remote-only
+
+      - name: Check deployed site
+        if: steps.current.outputs.deploy == 'true'
+        run: curl --fail --show-error --silent --retry 5 --retry-delay 3 "https://${FLY_APP}.fly.dev/health"

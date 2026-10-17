@@ -1,7 +1,7 @@
 import { publishedPosts } from '$lib/content';
 import { pages } from '$lib/content/pages';
 import { site } from '$lib/config';
-import { publishedManagedPosts } from '$lib/server/content-db';
+import { currentBlogPosts } from '$lib/server/editorial';
 import type { RequestHandler } from './$types';
 
 const fixed = [
@@ -24,11 +24,13 @@ const escapeXml = (value: string) =>
 export const GET: RequestHandler = () => {
 	const today = new Date().toISOString();
 	const entries: { url: string; modified: string; image?: string | null; imageTitle?: string }[] = [
-		...[...new Set([...fixed, ...Object.keys(pages)])].map((path) => ({
+		...[
+			...new Set([...fixed, ...Object.keys(pages).filter((path) => path !== 'market-stats')])
+		].map((path) => ({
 			url: `${site.origin}/${path}`,
 			modified: today
 		})),
-		...[...publishedPosts(), ...publishedManagedPosts()].map((post) => ({
+		...[...publishedPosts('oldblog'), ...currentBlogPosts()].map((post) => ({
 			url: `${site.origin}/${post.collection}/${post.slug}`,
 			modified: post.modified,
 			image: post.image?.startsWith('/') ? `${site.origin}${post.image}` : post.image,
