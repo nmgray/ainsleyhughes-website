@@ -7,7 +7,7 @@
 <article class="content section narrow">
 	<p class="eyebrow">Privacy</p>
 	<h1>Privacy and cookie notice</h1>
-	<p>Last updated September 25, 2026.</p>
+	<p>Last updated October 17, 2026.</p>
 	<h2>Information you provide</h2>
 	<p>
 		When you submit a form, we use the contact and property information you provide to respond to
@@ -21,6 +21,11 @@
 		corresponding category. You may withdraw consent through Cookie Preferences in the footer.
 	</p>
 	<p>
+		This site loads fonts from Adobe Fonts when you visit, before you make a cookie choice. Your
+		browser connects to Adobe to request the fonts and may send technical information such as your
+		IP address and browser details.
+	</p>
+	<p>
 		If you like a blog article, a first-party functional cookie assigns a random identifier so the
 		site can remember your choice and avoid counting repeated clicks as separate likes. The
 		identifier is not used for advertising, cross-site tracking, or identification and expires after
@@ -29,9 +34,9 @@
 	</p>
 	<h2>Service providers and retention</h2>
 	<p>
-		Form information may be transmitted to configured CRM and automation providers solely to process
-		your inquiry. Retention and vendor details should be reviewed and finalized by the site owner
-		and legal counsel before production launch.
+		We receive form submissions by email. Service providers involved in transmitting and storing
+		these messages process the information necessary to deliver your inquiry. The providers and
+		retention periods for messages and delivery records must be confirmed before production launch.
 	</p>
 	<h2>Contact</h2>
 	<p>
