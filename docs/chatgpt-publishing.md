@@ -1,6 +1,6 @@
 # ChatGPT content publishing
 
-The live editorial API updates SQLite content without redeploying. It is limited to sourced
+The editorial API updates SQLite content without redeploying. It is limited to sourced
 homepage market updates (`market/home`), the five existing neighborhood-guide routes, current
 blog articles (`blog/<slug>`), and client reviews (`review/<slug>`). New review IDs begin with
 `review-`; existing review IDs are listed by the API. Static pages, layouts, fonts, routes, and
@@ -24,6 +24,23 @@ Reviews require a verifiable HTTPS source link and affirmative republication app
 publishing. Existing static reviews lack source URLs, so confirm their source and publication
 rights before editing them through the Action. As before, no self-serving `Review` structured
 data is generated.
+
+## First test deployment
+
+After a pull request is **merged into `develop`**, inspect its GitHub Actions run and confirm
+the deploy and health-check steps passed. Direct pushes do not trigger this workflow. Then:
+
+1. Open `https://test-ainsleyhughes.fly.dev/health` and
+   `https://test-ainsleyhughes.fly.dev/api/editorial/openapi.json`. Both should respond
+   successfully, and the Action schema should describe bearer authentication.
+2. Check that `GET /api/editorial` rejects requests without the test key and returns the
+   available resources when called with the test key in the Authorization header. Never
+   put the key in a URL, issue, or chat.
+3. Confirm `/market-stats` redirects to the homepage and old placeholder figures are not
+   displayed. Check that published articles and neighborhood guides still load.
+4. With explicit owner approval, create a clearly labeled temporary blog draft on the
+   **test app only**; preview, publish, check its public page, and unpublish it. Confirm
+   that the page disappears. Do not use production content or credentials for this check.
 
 ## Configure
 
