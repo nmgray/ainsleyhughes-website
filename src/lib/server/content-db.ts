@@ -299,13 +299,6 @@ function toPost(post: ManagedPost): Post {
 	};
 }
 
-export function managedPosts() {
-	return database
-		.prepare('SELECT * FROM posts ORDER BY priority DESC, published_at DESC')
-		.all()
-		.map((row) => rowToManagedPost(row as Record<string, unknown>));
-}
-
 export function publishedManagedPosts(now = new Date()) {
 	return database
 		.prepare(
@@ -324,81 +317,6 @@ export function findManagedPost(slug: string, now = new Date()) {
 	return row ? toPost(rowToManagedPost(row)) : undefined;
 }
 
-export function saveManagedPost(post: Omit<ManagedPost, 'id' | 'modified'> & { id?: number }) {
-	const modified = new Date().toISOString();
-	if (post.id) {
-		database
-			.prepare(
-				`UPDATE posts SET slug = ?, title = ?, excerpt = ?, body_text = ?, image = ?,
-				image_alt = ?, published_at = ?, updated_at = ?, status = ?, seo_title = ?,
-				seo_description = ?, priority = ? WHERE id = ?`
-			)
-			.run(
-				post.slug,
-				post.title,
-				post.excerpt,
-				post.bodyText,
-				post.image,
-				post.imageAlt,
-				post.published,
-				modified,
-				post.status,
-				post.seoTitle,
-				post.seoDescription,
-				post.priority,
-				post.id
-			);
-		return post.id;
-	}
-	return Number(
-		database
-			.prepare(
-				`INSERT INTO posts
-				(slug, title, excerpt, body_text, image, image_alt, published_at, updated_at, status, seo_title, seo_description, priority)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-			)
-			.run(
-				post.slug,
-				post.title,
-				post.excerpt,
-				post.bodyText,
-				post.image,
-				post.imageAlt,
-				post.published,
-				modified,
-				post.status,
-				post.seoTitle,
-				post.seoDescription,
-				post.priority
-			).lastInsertRowid
-	);
-}
-
-export function deleteManagedPost(id: number) {
-	return database.prepare('DELETE FROM posts WHERE id = ?').run(id).changes > 0;
-}
-
-export function updateManagedPostSettings(
-	id: number,
-	status: ManagedPost['status'],
-	priority: number
-) {
-	return (
-		database
-			.prepare('UPDATE posts SET status = ?, priority = ?, updated_at = ? WHERE id = ?')
-			.run(status, priority, new Date().toISOString(), id).changes > 0
-	);
-}
-
-export function marketSnapshots() {
-	return database
-		.prepare(
-			'SELECT * FROM market_snapshots ORDER BY priority DESC, source_date DESC, updated_at DESC'
-		)
-		.all()
-		.map((row) => rowToMarketInsights(row as Record<string, unknown>));
-}
-
 export function publishedMarketInsights() {
 	const row = database
 		.prepare(
@@ -409,87 +327,6 @@ export function publishedMarketInsights() {
 		)
 		.get() as Record<string, unknown> | undefined;
 	return row ? rowToMarketInsights(row) : undefined;
-}
-
-export function saveMarketInsights(
-	insights: Omit<MarketInsights, 'id' | 'updated'> & { id?: number }
-) {
-	const updated = new Date().toISOString();
-	return database.transaction(() => {
-		if (insights.status === 'published') {
-			database
-				.prepare("UPDATE market_snapshots SET status = 'draft' WHERE status = 'published'")
-				.run();
-		}
-		if (insights.id) {
-			database
-				.prepare(
-					`UPDATE market_snapshots SET
-						headline = ?, summary = ?, period_label = ?, source_name = ?, source_url = ?,
-						source_date = ?, metrics_json = ?, status = ?, priority = ?, updated_at = ?
-					 WHERE id = ?`
-				)
-				.run(
-					insights.headline,
-					insights.summary,
-					insights.periodLabel,
-					insights.sourceName,
-					insights.sourceUrl,
-					insights.sourceDate,
-					JSON.stringify(insights.metrics),
-					insights.status,
-					insights.priority,
-					updated,
-					insights.id
-				);
-			return insights.id;
-		}
-		return Number(
-			database
-				.prepare(
-					`INSERT INTO market_snapshots
-						(headline, summary, period_label, source_name, source_url, source_date, metrics_json, status, priority, updated_at)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-				)
-				.run(
-					insights.headline,
-					insights.summary,
-					insights.periodLabel,
-					insights.sourceName,
-					insights.sourceUrl,
-					insights.sourceDate,
-					JSON.stringify(insights.metrics),
-					insights.status,
-					insights.priority,
-					updated
-				).lastInsertRowid
-		);
-	})();
-}
-
-export function deleteMarketInsights(id: number) {
-	return database.prepare('DELETE FROM market_snapshots WHERE id = ?').run(id).changes > 0;
-}
-
-export function updateMarketInsightsSettings(
-	id: number,
-	status: MarketInsights['status'],
-	priority: number
-) {
-	return database.transaction(() => {
-		if (status === 'published') {
-			database
-				.prepare("UPDATE market_snapshots SET status = 'draft' WHERE status = 'published'")
-				.run();
-		}
-		return (
-			database
-				.prepare(
-					'UPDATE market_snapshots SET status = ?, priority = ?, updated_at = ? WHERE id = ?'
-				)
-				.run(status, priority, new Date().toISOString(), id).changes > 0
-		);
-	})();
 }
 
 export function managedReviews() {
@@ -508,71 +345,6 @@ export function publishedManagedReviews() {
 		)
 		.all()
 		.map((row) => rowToManagedReview(row as Record<string, unknown>));
-}
-
-export function saveManagedReview(review: Omit<ManagedReview, 'id' | 'updated'> & { id?: number }) {
-	const updated = new Date().toISOString();
-	if (review.id) {
-		database
-			.prepare(
-				`UPDATE reviews SET theme = ?, quote = ?, reviewer_name = ?, relationship = ?,
-					source_name = ?, source_url = ?, rating = ?, publication_approved = ?,
-					status = ?, priority = ?, updated_at = ? WHERE id = ?`
-			)
-			.run(
-				review.theme,
-				review.quote,
-				review.reviewerName,
-				review.relationship,
-				review.sourceName,
-				review.sourceUrl,
-				review.rating,
-				review.publicationApproved ? 1 : 0,
-				review.status,
-				review.priority,
-				updated,
-				review.id
-			);
-		return review.id;
-	}
-	return Number(
-		database
-			.prepare(
-				`INSERT INTO reviews
-					(theme, quote, reviewer_name, relationship, source_name, source_url, rating,
-					 publication_approved, status, priority, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-			)
-			.run(
-				review.theme,
-				review.quote,
-				review.reviewerName,
-				review.relationship,
-				review.sourceName,
-				review.sourceUrl,
-				review.rating,
-				review.publicationApproved ? 1 : 0,
-				review.status,
-				review.priority,
-				updated
-			).lastInsertRowid
-	);
-}
-
-export function deleteManagedReview(id: number) {
-	return database.prepare('DELETE FROM reviews WHERE id = ?').run(id).changes > 0;
-}
-
-export function updateManagedReviewSettings(
-	id: number,
-	status: ManagedReview['status'],
-	priority: number
-) {
-	return (
-		database
-			.prepare('UPDATE reviews SET status = ?, priority = ?, updated_at = ? WHERE id = ?')
-			.run(status, priority, new Date().toISOString(), id).changes > 0
-	);
 }
 
 export type EditorialKind = 'market' | 'neighborhood' | 'blog' | 'review';

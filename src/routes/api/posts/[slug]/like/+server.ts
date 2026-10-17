@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import { findPost } from '$lib/content';
-import { isSameOrigin } from '$lib/server/admin-auth';
 import { findManagedPost, toggleArticleLike } from '$lib/server/content-db';
 import { checkRateLimit } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
@@ -9,7 +8,7 @@ import type { RequestHandler } from './$types';
 const voterCookie = 'article_voter';
 
 export const POST: RequestHandler = async ({ params, request, url, cookies, getClientAddress }) => {
-	if (!isSameOrigin(request, url)) {
+	if (request.headers.get('origin') !== url.origin) {
 		return json({ message: 'This request origin is not allowed.' }, { status: 403 });
 	}
 	if (!(await checkRateLimit(`article-like:${getClientAddress()}`, 30, 60_000))) {

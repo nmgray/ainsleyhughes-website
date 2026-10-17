@@ -2,6 +2,8 @@
 
 Exported from the session task database on 2026-09-26. This file preserves the full implementation
 history and outstanding owner decisions if agent context is unavailable.
+Completed entries describing the former `/admin` editor are historical; current publishing uses
+the authenticated editorial API described in [the publishing guide](chatgpt-publishing.md).
 
 ## Blocked
 
@@ -12,9 +14,9 @@ history and outstanding owner decisions if agent context is unavailable.
 | `legacy-content-review`       | Reviewing legacy blog content            | Owner must approve which legacy articles should remain indexed, redirect, or be removed before changing editorial URLs.                                                                                     | None                   |
 | `offsite-entity-review`       | Verifying off-site entity profiles       | Requires owner access to verify NAP and descriptions in Google Business Profile, Zillow, Realtor.com, Keller Williams, and local directories.                                                               | None                   |
 | `review-schema-approval`      | Approving testimonial schema             | Source-aware review workflow is deployed; legacy testimonials still require owner confirmation of republication rights and source URLs before migration and `Review` schema emission.                       | None                   |
-| `citable-market-data`         | Publishing citable market data           | Publishing workflow is deployed; requires admin credentials plus owner-approved figures from a dated primary source before a public snapshot can be published.                                              | None                   |
+| `citable-market-data`         | Publishing citable market data           | Publishing workflow is deployed; requires the editorial API credential plus owner-approved figures from a dated primary source before a public snapshot can be published.                                   | None                   |
 | `expert-market-perspective`   | Publishing expert market perspective     | Requires owner-authored or owner-approved original quotes and guidance on Ojai market conditions, fire risk, zoning, water, septic, or transaction strategy.                                                | None                   |
-| `market-metrics-suggestion`   | Injecting maintained market metrics      | Admin-managed dated and source-attributed market snapshot workflow is deployed; public metrics await verified owner-approved figures.                                                                       | None                   |
+| `market-metrics-suggestion`   | Injecting maintained market metrics      | Editorial API publishing for dated and source-attributed market snapshots is deployed; public metrics await verified owner-approved figures.                                                                | None                   |
 | `schema-social-geo-expansion` | Expanding social and service-area schema | Geographic service-area entities are deployed; only the official Keller Williams agent-profile URL remains unverified for inclusion in `sameAs`.                                                            | None                   |
 
 ## Completed

@@ -11,7 +11,6 @@
 		"migrate:assets": "node scripts/download-assets.mjs",
 		"migrate:pages": "node scripts/import-pages.mjs",
 		"optimize:images": "node scripts/normalize-images.mjs",
-		"admin:hash-password": "node scripts/hash-admin-password.mjs",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",

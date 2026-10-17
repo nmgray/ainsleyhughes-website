@@ -27,34 +27,21 @@ The content importer follows collection pagination and preserves slugs, dates, a
 
 Static editorial pages are typed in `src/lib/content/pages.ts`. Add a new one-level page by adding an entry keyed by its URL slug. Dedicated high-conversion pages live in `src/routes`.
 
-### Content editor
+### Content publishing
 
-The private editor is available at `/admin`. Generate a scrypt password hash locally with
-`npm run admin:hash-password`; the prompt does not echo the password. Configure the resulting
-`ADMIN_PASSWORD_HASH` and an unpredictable `ADMIN_SESSION_SECRET` of at least 32 characters as
-server-only secrets. Never store the password or either secret in the repository.
+There is no browser admin page or password login. Market updates, existing neighborhood guides,
+blog posts, and client reviews are published through the authenticated JSON editorial API. Any
+server-to-server service with the app's `EDITOR_API_KEY` can read resources, save drafts, preview,
+publish with explicit confirmation, unpublish, and upload images. Configure a separate key for
+each Fly app; never place it in frontend code, a URL, or GPT instructions. The API has no
+cross-origin browser access. See [the publishing guide](docs/chatgpt-publishing.md) for the Action
+schema, content rules, and approval workflow.
 
-Authentication uses five-attempt-per-15-minute login throttling, exact same-origin checks,
-HTTP-only `SameSite=Strict` cookies, and signed sessions that expire after 12 hours. A persistent
-section sidebar separates blog posts, market snapshots, and client reviews. Each section provides
-create, edit, delete, explicit visibility, and numeric priority controls; higher priorities appear
-first on public listing pages. Editors can create drafts, schedule or publish posts, upload feature
-images, edit existing managed posts, and remove them without changing source code. Article bodies
-support safe Markdown for section headings, lists, links, emphasis, block quotes, tables, and inline
-images. The editor includes formatting controls, authenticated inline-image upload, and a rendered
-preview using the same sanitizer as published articles. The same interface manages homepage market
-snapshots
-with one to twelve dynamically managed metrics, a reporting period, source name, source URL, and
-source publication date. Explicit **Save draft** and **Publish snapshot** actions remove status
-ambiguity, and an editable history shows prior snapshots. The newest published snapshot renders
-with visible attribution and matching `Dataset` JSON-LD. The editor also manages sourced client
-reviews. Reviews require a source URL and explicit republication approval. They are displayed with
-attribution but do not emit `Review` JSON-LD because Google excludes self-controlled local-business
-reviews from review rich results.
-
-Managed content uses SQLite at `CONTENT_DB_PATH`; uploaded images use `CONTENT_UPLOAD_DIR`. The Fly
-configuration mounts the `ainsley_data` volume at `/data`. Keep a single application Machine while
-using SQLite and include the volume in the backup plan.
+Published content uses SQLite at `CONTENT_DB_PATH`; uploaded images use `CONTENT_UPLOAD_DIR`.
+Previously published admin-managed content remains available as a read-only baseline, with new
+editorial revisions taking precedence. The Fly configuration mounts the `ainsley_data` volume
+at `/data`. Keep a single application Machine while using SQLite and include the volume in
+the backup plan.
 
 ## APIs and discovery
 
@@ -62,7 +49,8 @@ using SQLite and include the volume in the backup plan.
 - `POST /api/valuation` handles the seller property-review funnel.
 - `GET /api/llm-tools?area=ojai` returns sourced general neighborhood context.
 - `POST /api/llm-tools` accepts authorized consultation requests using `x-api-key`.
-- `GET /api/openapi.json` is the ChatGPT custom-action schema.
+- `GET /api/openapi.json` describes the separate neighborhood/lead tools.
+- `GET /api/editorial/openapi.json` describes the bearer-authenticated content publishing Action.
 - `/sitemap.xml`, `/rss.xml`, `/robots.txt`, and `/health` are generated or served directly.
 
 Rate limits use Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are
@@ -111,17 +99,11 @@ One-time setup:
    Keep each SQLite app at one Machine; multiple Machines cannot safely share this local
    database. Back up the volume before any data migration or manual replacement.
 
-3. Configure the application secrets **separately for each Fly app**. Both editorial API keys
-   are staged on their respective apps. Before production launch, configure email delivery
-   ([issue #3](https://github.com/nmgray/ainsleyhughes-website/issues/3)); if the legacy
-   admin is retained, configure its own production credentials. Do not copy test content.
-
-   ```powershell
-   flyctl secrets set --app ainsley-hughes ADMIN_PASSWORD_HASH='scrypt$…$…' ADMIN_SESSION_SECRET="…"
-   ```
-
-   Configure other optional integration secrets as needed. Never put credentials in this
-   repository.
+3. Configure runtime secrets **separately for each Fly app**. The two `EDITOR_API_KEY` values
+   are already configured on their respective apps; remove obsolete `ADMIN_PASSWORD_HASH` and
+   `ADMIN_SESSION_SECRET` secrets when retiring an older deployment. Before production launch,
+   configure email delivery ([issue #3](https://github.com/nmgray/ainsleyhughes-website/issues/3)).
+   Do not copy test content or put credentials in this repository.
 
 4. The `test` and `production` GitHub environments each have their own app-scoped
    `FLY_API_TOKEN`. Tokens expire October 17, 2027; rotate them before then:
@@ -148,11 +130,10 @@ One-time setup:
    flyctl certs check ainsleyhughes.com --app ainsley-hughes
    ```
 
-6. Confirm `/health`, form delivery, redirects, canonical URLs, and sitemap output on
-   the production hostname before directing visitors there. Check `/admin` if it remains
-   enabled during the transition to ChatGPT publishing.
+6. Confirm `/health`, form delivery, editorial API authentication, redirects, canonical URLs,
+   and sitemap output on the production hostname before directing visitors there.
 
 Fly deploys with health checks. Inspect releases using `fly releases`; roll back with `fly releases rollback <version>`. Application logs are available through `fly logs`.
 The Node adapter derives the public request origin from Fly's trusted `x-forwarded-proto` and
-`host` headers. Do not hard-code `ORIGIN`: doing so makes legitimate admin form submissions fail
-when the Fly preview hostname and production custom domain differ.
+`host` headers. Do not hard-code `ORIGIN`: doing so can make legitimate same-origin browser
+requests fail when the Fly preview hostname and production custom domain differ.

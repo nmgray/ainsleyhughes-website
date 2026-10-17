@@ -75,10 +75,12 @@ newer publication.
 
 Do not let the GPT claim it published a change until the publish response succeeds and the
 public URL has been checked. Content changes need no redeploy; adding routes, features, new
-templates, or altering the code-defined pages does. The existing `/admin` remains available
-during transition, but editorial overrides take precedence over its older post and market
-records; do not edit the same resource through both interfaces. Retire that interface after
-the GPT workflow has been verified for reviews as well.
+templates, or altering the code-defined pages does. There is no `/admin` page or legacy admin
+write API. Any server-to-server service may use the app's editorial bearer key, but that key
+grants publishing access to all four content types: share it only with trusted services, and
+rotate it if access must be revoked. The API does not enable cross-origin browser calls; do
+not embed the key in client-side code. Earlier admin-managed records remain readable as
+baselines; editorial revisions are their only supported update path.
 
 ## GPT instructions
 
