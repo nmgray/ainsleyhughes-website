@@ -37,7 +37,7 @@ test('editorial drafts stay private until approved and are reversible', async ({
 		seoDescription: 'A temporary test of the publishing workflow.'
 	};
 	const saved = await request.post(path, {
-		headers,
+		headers: { ...headers, origin: 'https://external-editor.example' },
 		data: { content: draft, expectedPublishedRevision: null }
 	});
 	expect(saved.status()).toBe(201);

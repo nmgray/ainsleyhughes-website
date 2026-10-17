@@ -372,167 +372,19 @@ test('opaque article URLs permanently redirect to descriptive canonical URLs', a
 	expect(response.headers().location).toBe('/blog/city-of-ojai-vs-unincorporated-ojai');
 });
 
-test('authenticated editor publishes and removes a scheduled article', async ({ page }) => {
-	const slug = `editor-acceptance-${Date.now()}`;
-	const title = `Editor acceptance ${Date.now()}`;
-	await page.goto('/admin');
-	await page.getByLabel('Password').fill('playwright-admin-password');
-	await page.getByRole('button', { name: 'Sign in' }).click();
-
-	const postForm = page.locator('form[action="?/save"]');
-	await postForm.getByLabel('Title', { exact: true }).fill(title);
-	await postForm.getByLabel('URL slug').fill(slug);
-	await postForm
-		.getByLabel('Summary', { exact: true })
-		.fill('A temporary publishing acceptance article.');
-	await postForm
-		.getByLabel('Article body')
-		.fill(
-			'This article was created without editing source code.\n\n## Local guidance\n\n- First useful point\n- Second useful point\n\nRead the **important details** and [source](https://example.com/article-source).'
-		);
-	await postForm.getByRole('button', { name: 'Preview article' }).click();
-	await expect(
-		page.locator('.article-preview').getByRole('heading', { name: 'Local guidance' })
-	).toBeVisible();
-	await expect(page.locator('.article-preview').getByRole('listitem')).toHaveCount(2);
-	await postForm.getByLabel('Publication date and time').fill('2026-01-01T09:00');
-	await postForm.getByLabel('Priority').fill('42');
-	await postForm.getByRole('button', { name: 'Publish post' }).click();
-	await expect(page.getByText('Saved successfully.')).toBeVisible();
-
-	await page.goto(`/blog/${slug}`);
-	await expect(page.getByRole('heading', { name: title })).toBeVisible();
-	await expect(page.getByRole('heading', { name: 'Local guidance' })).toBeVisible();
-	await expect(page.getByRole('listitem')).toHaveCount(2);
-	await expect(page.getByRole('link', { name: 'source' })).toHaveAttribute(
-		'href',
-		'https://example.com/article-source'
-	);
-
-	await page.goto('/blog');
-	await expect(page.locator('.blog-entry').filter({ hasText: title })).toBeVisible();
-
-	await page.goto('/admin');
-	let savedPost = page.locator('aside article').filter({ hasText: title });
-	const managePost = savedPost.locator('form[action="?/managePost"]');
-	await managePost.getByLabel('Visibility').selectOption('draft');
-	await managePost.getByLabel('Priority').fill('42');
-	await managePost.getByRole('button', { name: 'Apply' }).click();
-	savedPost = page.locator('aside article').filter({ hasText: title });
-	await expect(savedPost.getByLabel('Visibility')).toHaveValue('draft');
-	await expect(savedPost.getByLabel('Priority')).toHaveValue('42');
-	const hiddenResponse = await page.goto(`/blog/${slug}`);
-	expect(hiddenResponse?.status()).toBe(404);
-
-	await page.goto('/admin');
-	savedPost = page.locator('aside article').filter({ hasText: title });
-	page.once('dialog', (dialog) => dialog.dismiss());
-	await savedPost.getByRole('button', { name: 'Delete' }).click();
-	await expect(page.locator('aside article').filter({ hasText: title })).toBeVisible();
-	page.once('dialog', (dialog) => dialog.accept());
-	await savedPost.getByRole('button', { name: 'Delete' }).click();
-	await expect(page.locator('aside article').filter({ hasText: title })).toHaveCount(0);
-});
-
-test('authenticated editor publishes and removes sourced market insights', async ({ page }) => {
-	const headline = `Ojai Valley market snapshot ${Date.now()}`;
-	await page.goto('/admin');
-	await page.getByLabel('Password').fill('playwright-admin-password');
-	await page.getByRole('button', { name: 'Sign in' }).click();
-	await page.getByRole('button', { name: /Market snapshots/ }).click();
-
-	const form = page.locator('form[action="?/saveMarketInsights"]');
-	await expect(form.getByLabel('Label')).toHaveCount(1);
-	await form.getByRole('button', { name: 'Add metric' }).click();
-	await expect(form.getByLabel('Label')).toHaveCount(2);
-	await form.getByRole('button', { name: 'Remove metric 2' }).click();
-	await expect(form.getByLabel('Label')).toHaveCount(1);
-
-	await form.getByLabel('Section headline').fill(headline);
-	await form
-		.getByLabel('Summary and interpretation')
-		.fill('A sourced test snapshot used only for browser acceptance.');
-	await form.getByLabel('Reporting period').fill('September 2026');
-	await form.getByLabel('Source publication date').fill('2026-09-26');
-	await form.getByLabel('Source name').fill('Acceptance Test Market Report');
-	await form.getByLabel('Source URL').fill('https://example.com/ojai-market-report');
-	await form.getByLabel('Label').first().fill('Median sale price');
-	await form.getByLabel('Value').first().fill('$1.2M');
-	await form.getByLabel('Optional context').first().fill('Test data');
-	await form.getByRole('button', { name: 'Publish snapshot' }).click();
-	await expect(page.getByText('Market snapshot published to the homepage.')).toBeVisible();
-	const savedSnapshot = page.locator('article').filter({ hasText: headline });
-	await expect(savedSnapshot).toContainText('published · September 2026');
-	await savedSnapshot.getByRole('button', { name: 'Edit' }).click();
-	await expect(form.getByLabel('Section headline')).toHaveValue(headline);
-	await expect(form.getByLabel('Section headline')).toBeFocused();
-
-	await page.goto('/');
-	await expect(page.getByRole('heading', { name: headline })).toBeVisible();
-	await expect(page.getByRole('link', { name: 'Acceptance Test Market Report' })).toHaveAttribute(
-		'href',
-		'https://example.com/ojai-market-report'
-	);
-	const dataset = await page
-		.locator('script[type="application/ld+json"]')
-		.evaluateAll((scripts) =>
-			scripts
-				.flatMap((script) => JSON.parse(script.textContent ?? '{}')['@graph'] ?? [])
-				.find((entity) => entity['@type'] === 'Dataset')
-		);
-	expect(dataset).toMatchObject({
-		name: headline,
-		temporalCoverage: 'September 2026'
-	});
-
-	await page.goto('/admin');
-	await page.getByRole('button', { name: /Market snapshots/ }).click();
-	const snapshotToDelete = page.locator('article').filter({ hasText: headline });
-	page.once('dialog', (dialog) => dialog.accept());
-	await snapshotToDelete.getByRole('button', { name: 'Delete' }).click();
-	await expect(page.locator('article').filter({ hasText: headline })).toHaveCount(0);
-});
-
-test('approved sourced reviews publish without self-serving structured data', async ({ page }) => {
-	const theme = `Review acceptance ${Date.now()}`;
-	await page.goto('/admin');
-	await page.getByLabel('Password').fill('playwright-admin-password');
-	await page.getByRole('button', { name: 'Sign in' }).click();
-	await page.getByRole('button', { name: /Client reviews/ }).click();
-
-	const form = page.locator('form[action="?/saveReview"]');
-	await form.getByLabel('Review theme').fill(theme);
-	await form
-		.getByLabel('Review text')
-		.fill('A sourced review used only to verify the publishing workflow.');
-	await form.getByLabel('Reviewer display name').fill('T. R.');
-	await form.getByLabel('Client relationship').fill('Seller');
-	await form.getByLabel('Original source').fill('Acceptance Review Source');
-	await form.getByLabel('Source URL').fill('https://example.com/review');
-	await form.getByLabel('Rating, if shown by the source').selectOption('5');
-	await form.getByLabel(/I confirm this review may be republished/).check();
-	await form.getByRole('button', { name: 'Publish review' }).click();
-	await expect(page.getByText('Review saved successfully.')).toBeVisible();
-
-	await page.goto('/ojai-real-estate-reviews');
-	await expect(page.getByText(theme)).toBeVisible();
-	await expect(page.getByRole('link', { name: 'Acceptance Review Source' })).toHaveAttribute(
-		'href',
-		'https://example.com/review'
-	);
-	const structuredReviews = await page
-		.locator('script[type="application/ld+json"]')
-		.evaluateAll((scripts) =>
-			scripts
-				.map((script) => JSON.parse(script.textContent ?? '{}'))
-				.flatMap((document) => document.review ?? [])
-		);
-	expect(structuredReviews).toEqual([]);
-
-	await page.goto('/admin');
-	await page.getByRole('button', { name: /Client reviews/ }).click();
-	const savedReview = page.locator('aside article').filter({ hasText: theme });
-	page.once('dialog', (dialog) => dialog.accept());
-	await savedReview.getByRole('button', { name: 'Delete' }).click();
-	await expect(page.locator('aside article').filter({ hasText: theme })).toHaveCount(0);
+test('legacy admin routes are removed and admin cookies cannot authorize publishing', async ({
+	request
+}) => {
+	expect((await request.get('/admin')).status()).toBe(404);
+	expect(
+		(await request.post('/api/admin/markdown-preview', { data: { markdown: 'Draft' } })).status()
+	).toBe(404);
+	expect((await request.post('/api/admin/media', { data: {} })).status()).toBe(404);
+	expect(
+		(
+			await request.get('/api/editorial', {
+				headers: { cookie: 'ainsley-admin-session=obsolete' }
+			})
+		).status()
+	).toBe(401);
 });
